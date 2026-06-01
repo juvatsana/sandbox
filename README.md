@@ -1,187 +1,49 @@
-# Guide Renovate — Détection des changements d'APIs externes
+Bonjour à tous. Je me présente VORABOUT Julien Tech Lead au sein de l'équipe socle IT, une équipe de presque 10 personnes maintenant.
 
-## Qu'est-ce que Renovate ?
+Notre équipe est un peu particulière. On ne livre pas de fonctionnalités sur des produit contrairement aux autres équipes.
 
-Renovate est un outil automatisé de gestion des dépendances. Il surveille les versions des librairies utilisées dans un projet et ouvre automatiquement des **Merge Requests** lorsqu'une nouvelle version est disponible.
+Notre rôle ? Être l'équipe transverse qui permet à toutes les autres équipes de travailler mieux, avec de meilleures outils et de façon homogène.
 
-Il supporte nativement : Maven, npm, Docker, et bien d'autres.
+Concrètement, on intervient sur trois grands sujets. L'outillage, les bonnes pratiques de développement, et l'homogénéisation du SI
 
----
+1 Outillage 
 
-## Architecture mise en place chez JVO
+Imaginons que chaque équipe choisissent ses propres outils, ses propres pipelines, ses propres environnements. À court terme, ça peut sembler flexible. À long terme, ça devient vite le chaos.
 
-### Le dépôt central `renovate-config`
+Notre rôle, c'est de définir, maintenir et faire évoluer les outils communs à toutes les équipes.
 
-Toute la configuration Renovate est **centralisée** dans un seul dépôt partagé :
+Que ce soit les pipelines de CI/CD, les environnements de développement, ou les outils de monitoring (borne arcade)
 
-```
-socles/java/renovate-config
-```
+2 Les bonnes pratique
 
-Les projets n'ont qu'un `renovate.json` minimaliste qui hérite de cette config :
+Écrire du code, tout le monde sait faire. Écrire du code maintenable, lisible, et qui dure dans le temps... c'est une autre histoire.
 
-```json
-{
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "local>mfe-solutionit/socles/java/renovate-config"
-  ]
-}
-```
+C'est là qu'on intervient. On définit les standards de développement : les conventions de code, les règles de revue, la bonne utilisation de git, la mise en place d'outils de qualimetri de code  Sonar.
 
-Cela permet de **maintenir les règles en un seul endroit** pour tous les projets Java de l'organisation.
+On met à disposition des templates prêts à l'emploi pour que chaque nouvelle équipe ou chaque nouveau projet parte sur de bonnes bases, sans réinventer la roue.
 
----
+Et ainsi, on lutte contre la dette technique avant même qu'elle apparaisse. 
 
-## Configuration centrale (`config.js`)
+3 Homogénéisation du SI
 
-### Comportement global
+Troisième sujet, l'homogénéisation du Système d'Information.
 
-| Paramètre | Valeur | Description |
-|---|---|---|
-| `minimumReleaseAge` | 10 days | Attend 10 jours avant de proposer une MAJ (stabilité) |
-| `prHourlyLimit` | 10 | Maximum 10 MR créées par heure |
-| `labels` | MCO Continu | Toutes les MR Renovate sont taguées |
-| `persistRepoData` | true | Mémorise l'état entre les runs |
-| `baseBranch` | 1.11.x, 1.21.x | Branches surveillées |
+Quand toutes les équipes utilisent les mêmes briques techniques, les mêmes patterns, le même vocabulaire... la collaboration devient plus simple.
 
-### Registries configurés
+Un composant développé par une équipe peut être réutilisé par une autre. Les incompatibilités disparaissent. Les surprises en production aussi.
 
-```javascript
-// Docker → Registry Harbor interne JVO
-{
-    matchDatasources: ["docker"],
-    registryUrls: ["https://harbor.devops.jvo.fr/"],
-    pinDigests: false
-},
+Un exemple très concret : bientôt on va travailler sur l'homogénéisation des logs. Aujourd'hui, chaque application peut logger à sa façon.
 
-// Maven → Nexus interne JVO
-{
-    matchDatasources: ["maven"],
-    registryUrls: [
-        "https://nexus.dtni.jvo.fr/content/repositories/public-releases"
-    ]
-},
+Demain, grâce à un standard commun, n'importe quelle équipe pourra analyser, surveiller et debuguer n'importe quelle application avec les mêmes outils et les mêmes réflexes.
 
-// npm → Nexus interne JVO
-{
-    matchDatasources: ["npm"],
-    registryUrls: [
-        "http://nexus.dtni.jvo.fr/content/groups/public-npm-releases/"
-    ]
-}
-```
+On réduit les doublons, on simplifie les interfaces entre les systèmes, et on rend le SI globalement plus facile à maintenir et à faire évoluer.
 
-### Règles de mise à jour automatique
+CONCLUSION 
 
-- Les **patches** (ex: 1.0.1 → 1.0.2) sont **auto-mergés** sauf versions `0.x.x`
-- Les dépendances internes JVO ont un délai de stabilité de **0 jours** (mise à jour immédiate)
-- Les dépendances externes ont un délai de **10 jours**
+En résumé, l'équipe Socle IT se met en œuvre pour que toutes les équipes soient plus efficaces, plus alignées, et plus sereines au quotidien.
 
----
+Migration SDK 21, feature flipping avec FFMS, tests d'intégration automatisés, homogénéisation des logs
 
-## Cas d'usage : Surveillance d'une API externe
+Ce sont des chantiers en cours concrets qui permettront d'améliorer le socle technique de Macif vie.
 
-### Contexte
-
-Le dépôt `api-karma-mfe` consomme une API externe **Karma** via un `WebClient`. Tous les endpoints sont centralisés dans une enum `KarmaEndpoint`.
-
-### Flux de détection
-
-```
-API Karma (externe)
-        ↓
-swagger-gen génère karma-kapia.yaml (+85 000 lignes)
-        ↓  mvn -P karma-kapia
-Client Java généré automatiquement (DTOs, interfaces)
-        ↓
-Publié comme artefact Maven sur Nexus
-        ↓
-Renovate détecte la nouvelle version sur Nexus
-        ↓
-Renovate ouvre une MR sur api-karma-mfe
-```
-
-### Ce que Renovate détecte
-
-Renovate surveille la **version de l'artefact Maven** généré par `swagger-gen`. Dès qu'une nouvelle version est publiée sur Nexus, il propose automatiquement la mise à jour dans le `pom.xml` du projet consommateur.
-
-```xml
-<!-- pom.xml de api-karma-mfe -->
-<dependency>
-    <groupId>fr.jvo.api.kapia</groupId>
-    <artifactId>karma</artifactId>
-    <version>1.8.7</version>  ← Renovate surveille cette version
-</dependency>
-```
-
----
-
-## Snapshots vs Releases
-
-Il est **fortement recommandé** de surveiller les **releases uniquement**.
-
-| | Releases | Snapshots |
-|---|---|---|
-| Stabilité | ✅ Stable et définitive | ⚠️ Écrasée à chaque build |
-| Détection Renovate | ✅ Fonctionne parfaitement | ❌ Mal supporté |
-| Déclenchement MR | ✅ Un vrai changement intentionnel | ❌ Faux positifs possibles |
-| `minimumReleaseAge` | ✅ Fonctionne | ❌ Ne fonctionne pas |
-
----
-
-## Ajouter un nouveau registry Maven
-
-Si une société partenaire publie ses artefacts sur un Nexus différent, il suffit d'ajouter l'URL dans le tableau `registryUrls` du `config.js` central :
-
-```javascript
-{
-    matchDatasources: ["maven"],
-    registryUrls: [
-        // Nexus JVO
-        "https://nexus.dtni.jvo.fr/content/repositories/public-releases",
-        // Nexus société partenaire — releases uniquement
-        "https://nexus.[partenaire].fr/content/repositories/releases"
-    ]
-}
-```
-
-Renovate interroge les URLs **dans l'ordre** et s'arrête dès qu'il trouve la dépendance.
-
----
-
-## Variables CI/CD requises
-
-Pour que Renovate fonctionne dans un projet, configurer ces variables dans GitLab CI :
-
-| Variable | Description |
-|---|---|
-| `CI_API_V4_URL` | URL de l'API GitLab JVO |
-| `CICD_HARBOR_FACTORY_TOKEN_WRITE` | Token Harbor avec droits écriture |
-| `CICD_HARBOR_FACTORY_ACCOUNT_READ` | Compte Harbor lecture |
-| `CICD_HARBOR_FACTORY_TOKEN_READ` | Token Harbor lecture |
-
----
-
-## Aller plus loin : détecter les breaking changes
-
-Renovate signale **qu'une version a changé**, mais pas **ce qui a changé dans le contrat API**. Pour détecter les breaking changes sur les endpoints, combiner avec `oasdiff` dans la CI :
-
-```yaml
-# .gitlab-ci.yml
-check-api-breaking-changes:
-  script:
-    - oasdiff breaking resources/openapi/karma-kapia-old.yaml resources/openapi/karma-kapia-new.yaml
-  allow_failure: false
-```
-
-Cela bloquera la MR si un endpoint est supprimé ou modifié de façon incompatible.
-
----
-
-## Ressources
-
-- [Documentation Renovate](https://docs.renovatebot.com)
-- [Configuration options](https://docs.renovatebot.com/configuration-options/)
-- [oasdiff — OpenAPI diff tool](https://github.com/oasdiff/oasdiff)
-- 
+Si vous avez des questions, des besoins, ou simplement envie d'échanger avec nous, n'hésitez pas à venir nous voir. On est disponible.
