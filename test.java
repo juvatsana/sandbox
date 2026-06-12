@@ -1,93 +1,86 @@
 @ExtendWith(MockitoExtension.class)
-class UtilisateurProduitRoleControllerTest {
+class ProduitControllerTest {
 
     @Mock
-    private AssignRoleToUtilisateurUseCase assignRoleToUtilisateurUseCase;
+    private FindAllProduitsUseCase findAllProduitsUseCase;
 
     @Mock
-    private FindRolesByUtilisateurUseCase findRolesByUtilisateurUseCase;
+    private FindProduitByIdUseCase findProduitByIdUseCase;
 
     @Mock
-    private FindRolesByProduitUseCase findRolesByProduitUseCase;
+    private FindProduitByCodeUseCase findProduitByCodeUseCase;
 
     @Mock
-    private CheckCanUpdateFonctionnaliteUseCase checkCanUpdateFonctionnaliteUseCase;
-
-    @Mock
-    private UtilisateurProduitRoleDtoMapper utilisateurProduitRoleDtoMapper;
+    private ProduitDtoMapper produitDtoMapper;
 
     @InjectMocks
-    private UtilisateurProduitRoleController controller;
+    private ProduitController controller;
 
-    // --- assignRole ---
+    // --- findAllProduits ---
 
     @Test
-    void assignRole_returnsResponse() {
-        var request = mock(UtilisateurProduitRoleRequest.class);
-        var expected = mock(UtilisateurProduitRoleResponse.class);
+    void findAllProduits_returnsOk() {
+        var produit = mock(Produit.class);
+        var response = mock(ProduitResponse.class);
 
-        when(request.utilisateurId()).thenReturn(1L);
-        when(request.produitId()).thenReturn(2L);
-        when(request.role()).thenReturn("ADMIN");
-        when(assignRoleToUtilisateurUseCase.execute(any())).thenReturn(mock(UtilisateurProduitRole.class));
-        when(utilisateurProduitRoleDtoMapper.toResponse(any())).thenReturn(expected);
+        when(findAllProduitsUseCase.execute(null)).thenReturn(List.of(produit));
+        when(produitDtoMapper.toResponse(produit)).thenReturn(response);
 
-        var result = controller.assignRole(request);
+        var result = controller.findAllProduits();
 
-        assertThat(result).isEqualTo(expected);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).containsExactly(response);
     }
 
-    // --- findRolesByUtilisateur ---
+    // --- findProduitById ---
 
     @Test
-    void findRolesByUtilisateur_returnsList() {
-        var role = mock(UtilisateurProduitRole.class);
-        var response = mock(UtilisateurProduitRoleResponse.class);
+    void findProduitById_found_returnsOk() {
+        var produit = mock(Produit.class);
+        var response = mock(ProduitResponse.class);
 
-        when(findRolesByUtilisateurUseCase.execute(new FindRolesByUtilisateurCommand(10L)))
-            .thenReturn(List.of(role));
-        when(utilisateurProduitRoleDtoMapper.toResponse(role)).thenReturn(response);
+        when(findProduitByIdUseCase.execute(new FindProduitByIdCommand(1L)))
+            .thenReturn(Optional.of(produit));
+        when(produitDtoMapper.toResponse(produit)).thenReturn(response);
 
-        var result = controller.findRolesByUtilisateur(10L);
+        var result = controller.findProduitById(1L);
 
-        assertThat(result).containsExactly(response);
-    }
-
-    // --- findRolesByProduitId ---
-
-    @Test
-    void findRolesByProduitId_returnsList() {
-        var role = mock(UtilisateurProduitRole.class);
-        var response = mock(UtilisateurProduitRoleResponse.class);
-
-        when(findRolesByProduitUseCase.execute(new FindRolesByProduitCommand(5L)))
-            .thenReturn(List.of(role));
-        when(utilisateurProduitRoleDtoMapper.toResponse(role)).thenReturn(response);
-
-        var result = controller.findRolesByProduitId(5L);
-
-        assertThat(result).containsExactly(response);
-    }
-
-    // --- canUpdateFeature ---
-
-    @Test
-    void canUpdateFeature_allowed_returnsTrue() {
-        when(checkCanUpdateFonctionnaliteUseCase.execute(any())).thenReturn(true);
-
-        var result = controller.canUpdateFeature(1L, 2L);
-
-        assertThat(result.utilisateurId()).isEqualTo(1L);
-        assertThat(result.produitId()).isEqualTo(2L);
-        assertThat(result.allowed()).isTrue();
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(response);
     }
 
     @Test
-    void canUpdateFeature_notAllowed_returnsFalse() {
-        when(checkCanUpdateFonctionnaliteUseCase.execute(any())).thenReturn(false);
+    void findProduitById_notFound_returns404() {
+        when(findProduitByIdUseCase.execute(any())).thenReturn(Optional.empty());
 
-        var result = controller.canUpdateFeature(1L, 2L);
+        var result = controller.findProduitById(99L);
 
-        assertThat(result.allowed()).isFalse();
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // --- findProduitByCode ---
+
+    @Test
+    void findProduitByCode_found_returnsOk() {
+        var produit = mock(Produit.class);
+        var response = mock(ProduitResponse.class);
+
+        when(findProduitByCodeUseCase.execute(new FindProduitByCodeCommand("ABC")))
+            .thenReturn(Optional.of(produit));
+        when(produitDtoMapper.toResponse(produit)).thenReturn(response);
+
+        var result = controller.findProduitByCode("ABC");
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(response);
+    }
+
+    @Test
+    void findProduitByCode_notFound_returns404() {
+        when(findProduitByCodeUseCase.execute(any())).thenReturn(Optional.empty());
+
+        var result = controller.findProduitByCode("INCONNU");
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }
