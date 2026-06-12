@@ -1,56 +1,82 @@
 @ExtendWith(MockitoExtension.class)
-class EnvironnementControllerTest {
+class UtilisateurControllerTest {
 
     @Mock
-    private FindAllEnvironnementsUseCase findAllEnvironnementsUseCase;
+    private FindAllUtilisateursUseCase findAllUtilisateursUseCase;
 
     @Mock
-    private EnvironnementDtoMapper environnementDtoMapper;
+    private FindUtilisateurByIdUseCase findUtilisateurByIdUseCase;
+
+    @Mock
+    private FindUtilisateurByEmailUseCase findUtilisateurByEmailUseCase;
+
+    @Mock
+    private UtilisateurDtoMapper utilisateurDtoMapper;
 
     @InjectMocks
-    private EnvironnementController controller;
+    private UtilisateurController controller;
+
+    // --- findAllUtilisateurs ---
 
     @Test
-    void findAllEnvironnements_shouldReturnListOfResponses() {
-        // GIVEN
-        var env1 = new Object(); // remplace par le vrai type de domaine
-        var env2 = new Object();
-        var response1 = new EnvironnementResponse();
-        var response2 = new EnvironnementResponse();
+    void findAllUtilisateurs_returnsOk() {
+        var response = mock(UtilisateurResponse.class);
+        var utilisateur = mock(Utilisateur.class); // ou le type retourné par le use case
 
-        when(findAllEnvironnementsUseCase.execute(null)).thenReturn(List.of(env1, env2));
-        when(environnementDtoMapper.toResponse(env1)).thenReturn(response1);
-        when(environnementDtoMapper.toResponse(env2)).thenReturn(response2);
+        when(findAllUtilisateursUseCase.execute(null)).thenReturn(List.of(utilisateur));
+        when(utilisateurDtoMapper.toResponse(utilisateur)).thenReturn(response);
 
-        // WHEN
-        ResponseEntity<List<EnvironnementResponse>> result = controller.findAllEnvironnements();
+        ResponseEntity<List<UtilisateurResponse>> result = controller.findAllUtilisateurs();
 
-        // THEN
-        assertThat(result.getStatusCode().value()).isEqualTo(200);
-        assertThat(result.getBody()).containsExactly(response1, response2);
-        verify(findAllEnvironnementsUseCase).execute(null);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).containsExactly(response);
+    }
+
+    // --- findUtilisateurById ---
+
+    @Test
+    void findUtilisateurById_found_returnsOk() {
+        var response = mock(UtilisateurResponse.class);
+
+        when(findUtilisateurByIdUseCase.execute(new FindUtilisateurByIdCommand(1L)))
+            .thenReturn(Optional.of(mock(Utilisateur.class)));
+        when(utilisateurDtoMapper.toResponse(any())).thenReturn(response);
+
+        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurById(1L);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test
-    void findAllEnvironnements_shouldReturnEmptyList_whenNoneExist() {
-        // GIVEN
-        when(findAllEnvironnementsUseCase.execute(null)).thenReturn(List.of());
+    void findUtilisateurById_notFound_returns404() {
+        when(findUtilisateurByIdUseCase.execute(any())).thenReturn(Optional.empty());
 
-        // WHEN
-        ResponseEntity<List<EnvironnementResponse>> result = controller.findAllEnvironnements();
+        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurById(99L);
 
-        // THEN
-        assertThat(result.getStatusCode().value()).isEqualTo(200);
-        assertThat(result.getBody()).isEmpty();
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // --- findUtilisateurByEmail ---
+
+    @Test
+    void findUtilisateurByEmail_found_returnsOk() {
+        var response = mock(UtilisateurResponse.class);
+
+        when(findUtilisateurByEmailUseCase.execute(new FindUtilisateurByEmailCommand("a@b.com")))
+            .thenReturn(Optional.of(mock(Utilisateur.class)));
+        when(utilisateurDtoMapper.toResponse(any())).thenReturn(response);
+
+        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurByEmail("a@b.com");
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test
-    void findAllEnvironnements_shouldCallUseCaseExactlyOnce() {
-        when(findAllEnvironnementsUseCase.execute(null)).thenReturn(List.of());
+    void findUtilisateurByEmail_notFound_returns404() {
+        when(findUtilisateurByEmailUseCase.execute(any())).thenReturn(Optional.empty());
 
-        controller.findAllEnvironnements();
+        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurByEmail("inconnu@b.com");
 
-        verify(findAllEnvironnementsUseCase, times(1)).execute(null);
-        verifyNoMoreInteractions(findAllEnvironnementsUseCase);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }
