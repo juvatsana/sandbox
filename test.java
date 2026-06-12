@@ -1,74 +1,113 @@
 @ExtendWith(MockitoExtension.class)
-class UpdateFonctionnaliteUseCaseTest {
+class EvaluateFonctionnaliteUseCaseTest {
+
+    @Mock
+    private Validator validator;
 
     @Mock
     private FonctionnaliteRepository fonctionnaliteRepository;
 
     @Mock
-    private HistoriqueRepository historiqueRepository;
+    private FonctionnaliteEnvironnementRepository fonctionnaliteEnvironnementRepository;
 
     @InjectMocks
-    private UpdateFonctionnaliteUseCase useCase;
+    private EvaluateFonctionnaliteUseCase useCase;
 
-    private UpdateFonctionnaliteCommand buildCommand() {
-        var fonctionnalite = mock(Fonctionnalite.class);
-        when(fonctionnalite.getId()).thenReturn(1L);
-        when(fonctionnalite.getNom()).thenReturn("Nouveau nom");
-
-        var command = mock(UpdateFonctionnaliteCommand.class);
-        when(command.fonctionnalite()).thenReturn(fonctionnalite);
-        when(command.utilisateurId()).thenReturn(10L);
-        when(command.commentaire()).thenReturn("Mise à jour");
+    private EvaluateFonctionnaliteCommand buildCommand() {
+        var command = mock(EvaluateFonctionnaliteCommand.class);
+        when(command.getIdFonctionnalite()).thenReturn(1L);
+        when(command.getCodeEnvironnement()).thenReturn("PROD");
         return command;
     }
 
-    // --- Cas nominal ---
+    // --- Violation de contrainte ---
 
     @Test
-    void execute_found_updatesAndSavesHistorique() {
+    void execute_validationFails_throwsConstraintViolationException() {
         var command = buildCommand();
+        var violation = mock(ConstraintViolation.class);
 
-        var existing = mock(Fonctionnalite.class);
-        when(existing.getId()).thenReturn(1L);
-        when(existing.getProduitId()).thenReturn(2L);
-        when(existing.getApplication()).thenReturn("APP");
-        when(existing.getCreePar()).thenReturn("admin");
-        when(existing.getCreeLe()).thenReturn(LocalDateTime.of(2024, 1, 1, 0, 0));
+        when(validator.validate(command)).thenReturn(Set.of(violation));
 
-        when(fonctionnaliteRepository.getFonctionnalite(1L))
-            .thenReturn(Optional.of(existing));
+        assertThatThrownBy(() -> useCase.execute(command))
+            .isInstanceOf(ConstraintViolationException.class);
 
-        var saved = mock(Fonctionnalite.class);
-        when(fonctionnaliteRepository.saveFonctionnalite(any())).thenReturn(saved);
-
-        var result = useCase.execute(command);
-
-        assertThat(result).isEqualTo(saved);
-
-        // Vérifie que l'historique a bien été sauvegardé
-        verify(historiqueRepository).save(any(Historique.class));
-
-        // Vérifie que saveFonctionnalite a été appelé avec le bon nom
-        verify(fonctionnaliteRepository).saveFonctionnalite(
-            argThat(f -> f.getNom().equals("Nouveau nom"))
-        );
+        verifyNoInteractions(fonctionnaliteRepository);
     }
 
-    // --- Cas not found ---
+    // --- Fonctionnalite introuvable ---
 
     @Test
-    void execute_notFound_throwsIllegalArgumentException() {
+    void execute_fonctionnaliteNotFound_returnsFalse() {
         var command = buildCommand();
 
+        when(validator.validate(command)).thenReturn(Set.of());
         when(fonctionnaliteRepository.getFonctionnalite(1L))
             .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> useCase.execute(command))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Fonctionnalite introuvable");
+        var result = useCase.execute(command);
 
-        // Rien ne doit être sauvegardé
-        verifyNoInteractions(historiqueRepository);
-        verify(fonctionnaliteRepository, never()).saveFonctionnalite(any());
+        assertThat(result).isFalse();
+    }
+
+    // --- FonctionnaliteEnvironnement introuvable ---
+
+    @Test
+    void execute_environnementNotFound_returnsFalse() {
+        var command = buildCommand();
+        var fonctionnalite = mock(Fonctionnalite.class);
+
+        when(validator.validate(command)).thenReturn(Set.of());
+        when(fonctionnaliteRepository.getFonctionnalite(1L))
+            .thenReturn(Optional.of(fonctionnalite));
+        when(fonctionnaliteEnvironnementRepository
+            .findByFonctionnaliteIdAndEnvironnementCode(1L, "PROD"))
+            .thenReturn(Optional.empty());
+
+        var result = useCase.execute(command);
+
+        assertThat(result).isFalse();
+    }
+
+    // --- Fonctionnalite désactivée ---
+
+    @Test
+    void execute_fonctionnaliteDesactivee_returnsFalse() {
+        var command = buildCommand();
+        var fonctionnalite = mock(Fonctionnalite.class);
+        var fonctionnaliteEnv = mock(FonctionnaliteEnvironnement.class);
+
+        when(validator.validate(command)).thenReturn(Set.of());
+        when(fonctionnaliteRepository.getFonctionnalite(1L))
+            .thenReturn(Optional.of(fonctionnalite));
+        when(fonctionnaliteEnvironnementRepository
+            .findByFonctionnaliteIdAndEnvironnementCode(1L, "PROD"))
+            .thenReturn(Optional.of(fonctionnaliteEnv));
+        when(fonctionnaliteEnv.getActif()).thenReturn(Boolean.FALSE);
+
+        var result = useCase.execute(command);
+
+        assertThat(result).isFalse();
+    }
+
+    // --- Fonctionnalite active ---
+
+    @Test
+    void execute_fonctionnaliteActive_returnsTrue() {
+        var command = buildCommand();
+        var fonctionnalite = mock(Fonctionnalite.class);
+        var fonctionnaliteEnv = mock(FonctionnaliteEnvironnement.class);
+
+        when(validator.validate(command)).thenReturn(Set.of());
+        when(fonctionnaliteRepository.getFonctionnalite(1L))
+            .thenReturn(Optional.of(fonctionnalite));
+        when(fonctionnaliteEnvironnementRepository
+            .findByFonctionnaliteIdAndEnvironnementCode(1L, "PROD"))
+            .thenReturn(Optional.of(fonctionnaliteEnv));
+        when(fonctionnaliteEnv.getActif()).thenReturn(Boolean.TRUE);
+
+        var result = useCase.execute(command);
+
+        assertThat(result).isTrue();
     }
 }
