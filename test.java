@@ -1,86 +1,28 @@
 @ExtendWith(MockitoExtension.class)
-class ProduitControllerTest {
+class HistoriqueControllerTest {
 
     @Mock
-    private FindAllProduitsUseCase findAllProduitsUseCase;
+    private FindHistoriqueByUtilisateurUseCase findHistoriqueByUtilisateurUseCase;
 
     @Mock
-    private FindProduitByIdUseCase findProduitByIdUseCase;
-
-    @Mock
-    private FindProduitByCodeUseCase findProduitByCodeUseCase;
-
-    @Mock
-    private ProduitDtoMapper produitDtoMapper;
+    private HistoriqueDtoMapper historiqueDtoMapper;
 
     @InjectMocks
-    private ProduitController controller;
-
-    // --- findAllProduits ---
+    private HistoriqueController controller;
 
     @Test
-    void findAllProduits_returnsOk() {
-        var produit = mock(Produit.class);
-        var response = mock(ProduitResponse.class);
+    void findHistoriqueByUtilisateurId_returnsOk() {
+        var historique = mock(Historique.class);
+        var response = mock(HistoriqueResponse.class);
 
-        when(findAllProduitsUseCase.execute(null)).thenReturn(List.of(produit));
-        when(produitDtoMapper.toResponse(produit)).thenReturn(response);
+        when(findHistoriqueByUtilisateurUseCase.execute(
+            new FindHistoriqueByUtilisateurCommand(1L)))
+            .thenReturn(List.of(historique));
+        when(historiqueDtoMapper.toResponse(historique)).thenReturn(response);
 
-        var result = controller.findAllProduits();
+        var result = controller.findHistoriqueByUtilisateurId(1L);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).containsExactly(response);
-    }
-
-    // --- findProduitById ---
-
-    @Test
-    void findProduitById_found_returnsOk() {
-        var produit = mock(Produit.class);
-        var response = mock(ProduitResponse.class);
-
-        when(findProduitByIdUseCase.execute(new FindProduitByIdCommand(1L)))
-            .thenReturn(Optional.of(produit));
-        when(produitDtoMapper.toResponse(produit)).thenReturn(response);
-
-        var result = controller.findProduitById(1L);
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(result.getBody()).isEqualTo(response);
-    }
-
-    @Test
-    void findProduitById_notFound_returns404() {
-        when(findProduitByIdUseCase.execute(any())).thenReturn(Optional.empty());
-
-        var result = controller.findProduitById(99L);
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    // --- findProduitByCode ---
-
-    @Test
-    void findProduitByCode_found_returnsOk() {
-        var produit = mock(Produit.class);
-        var response = mock(ProduitResponse.class);
-
-        when(findProduitByCodeUseCase.execute(new FindProduitByCodeCommand("ABC")))
-            .thenReturn(Optional.of(produit));
-        when(produitDtoMapper.toResponse(produit)).thenReturn(response);
-
-        var result = controller.findProduitByCode("ABC");
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(result.getBody()).isEqualTo(response);
-    }
-
-    @Test
-    void findProduitByCode_notFound_returns404() {
-        when(findProduitByCodeUseCase.execute(any())).thenReturn(Optional.empty());
-
-        var result = controller.findProduitByCode("INCONNU");
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }
