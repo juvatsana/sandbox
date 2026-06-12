@@ -1,82 +1,93 @@
 @ExtendWith(MockitoExtension.class)
-class UtilisateurControllerTest {
+class UtilisateurProduitRoleControllerTest {
 
     @Mock
-    private FindAllUtilisateursUseCase findAllUtilisateursUseCase;
+    private AssignRoleToUtilisateurUseCase assignRoleToUtilisateurUseCase;
 
     @Mock
-    private FindUtilisateurByIdUseCase findUtilisateurByIdUseCase;
+    private FindRolesByUtilisateurUseCase findRolesByUtilisateurUseCase;
 
     @Mock
-    private FindUtilisateurByEmailUseCase findUtilisateurByEmailUseCase;
+    private FindRolesByProduitUseCase findRolesByProduitUseCase;
 
     @Mock
-    private UtilisateurDtoMapper utilisateurDtoMapper;
+    private CheckCanUpdateFonctionnaliteUseCase checkCanUpdateFonctionnaliteUseCase;
+
+    @Mock
+    private UtilisateurProduitRoleDtoMapper utilisateurProduitRoleDtoMapper;
 
     @InjectMocks
-    private UtilisateurController controller;
+    private UtilisateurProduitRoleController controller;
 
-    // --- findAllUtilisateurs ---
+    // --- assignRole ---
 
     @Test
-    void findAllUtilisateurs_returnsOk() {
-        var response = mock(UtilisateurResponse.class);
-        var utilisateur = mock(Utilisateur.class); // ou le type retourné par le use case
+    void assignRole_returnsResponse() {
+        var request = mock(UtilisateurProduitRoleRequest.class);
+        var expected = mock(UtilisateurProduitRoleResponse.class);
 
-        when(findAllUtilisateursUseCase.execute(null)).thenReturn(List.of(utilisateur));
-        when(utilisateurDtoMapper.toResponse(utilisateur)).thenReturn(response);
+        when(request.utilisateurId()).thenReturn(1L);
+        when(request.produitId()).thenReturn(2L);
+        when(request.role()).thenReturn("ADMIN");
+        when(assignRoleToUtilisateurUseCase.execute(any())).thenReturn(mock(UtilisateurProduitRole.class));
+        when(utilisateurProduitRoleDtoMapper.toResponse(any())).thenReturn(expected);
 
-        ResponseEntity<List<UtilisateurResponse>> result = controller.findAllUtilisateurs();
+        var result = controller.assignRole(request);
 
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(result.getBody()).containsExactly(response);
+        assertThat(result).isEqualTo(expected);
     }
 
-    // --- findUtilisateurById ---
+    // --- findRolesByUtilisateur ---
 
     @Test
-    void findUtilisateurById_found_returnsOk() {
-        var response = mock(UtilisateurResponse.class);
+    void findRolesByUtilisateur_returnsList() {
+        var role = mock(UtilisateurProduitRole.class);
+        var response = mock(UtilisateurProduitRoleResponse.class);
 
-        when(findUtilisateurByIdUseCase.execute(new FindUtilisateurByIdCommand(1L)))
-            .thenReturn(Optional.of(mock(Utilisateur.class)));
-        when(utilisateurDtoMapper.toResponse(any())).thenReturn(response);
+        when(findRolesByUtilisateurUseCase.execute(new FindRolesByUtilisateurCommand(10L)))
+            .thenReturn(List.of(role));
+        when(utilisateurProduitRoleDtoMapper.toResponse(role)).thenReturn(response);
 
-        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurById(1L);
+        var result = controller.findRolesByUtilisateur(10L);
 
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result).containsExactly(response);
+    }
+
+    // --- findRolesByProduitId ---
+
+    @Test
+    void findRolesByProduitId_returnsList() {
+        var role = mock(UtilisateurProduitRole.class);
+        var response = mock(UtilisateurProduitRoleResponse.class);
+
+        when(findRolesByProduitUseCase.execute(new FindRolesByProduitCommand(5L)))
+            .thenReturn(List.of(role));
+        when(utilisateurProduitRoleDtoMapper.toResponse(role)).thenReturn(response);
+
+        var result = controller.findRolesByProduitId(5L);
+
+        assertThat(result).containsExactly(response);
+    }
+
+    // --- canUpdateFeature ---
+
+    @Test
+    void canUpdateFeature_allowed_returnsTrue() {
+        when(checkCanUpdateFonctionnaliteUseCase.execute(any())).thenReturn(true);
+
+        var result = controller.canUpdateFeature(1L, 2L);
+
+        assertThat(result.utilisateurId()).isEqualTo(1L);
+        assertThat(result.produitId()).isEqualTo(2L);
+        assertThat(result.allowed()).isTrue();
     }
 
     @Test
-    void findUtilisateurById_notFound_returns404() {
-        when(findUtilisateurByIdUseCase.execute(any())).thenReturn(Optional.empty());
+    void canUpdateFeature_notAllowed_returnsFalse() {
+        when(checkCanUpdateFonctionnaliteUseCase.execute(any())).thenReturn(false);
 
-        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurById(99L);
+        var result = controller.canUpdateFeature(1L, 2L);
 
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    // --- findUtilisateurByEmail ---
-
-    @Test
-    void findUtilisateurByEmail_found_returnsOk() {
-        var response = mock(UtilisateurResponse.class);
-
-        when(findUtilisateurByEmailUseCase.execute(new FindUtilisateurByEmailCommand("a@b.com")))
-            .thenReturn(Optional.of(mock(Utilisateur.class)));
-        when(utilisateurDtoMapper.toResponse(any())).thenReturn(response);
-
-        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurByEmail("a@b.com");
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-    }
-
-    @Test
-    void findUtilisateurByEmail_notFound_returns404() {
-        when(findUtilisateurByEmailUseCase.execute(any())).thenReturn(Optional.empty());
-
-        ResponseEntity<UtilisateurResponse> result = controller.findUtilisateurByEmail("inconnu@b.com");
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(result.allowed()).isFalse();
     }
 }
