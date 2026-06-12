@@ -1,28 +1,26 @@
 @ExtendWith(MockitoExtension.class)
-class HistoriqueControllerTest {
+class AuthControllerTest {
 
     @Mock
-    private FindHistoriqueByUtilisateurUseCase findHistoriqueByUtilisateurUseCase;
-
-    @Mock
-    private HistoriqueDtoMapper historiqueDtoMapper;
+    private LoginUseCase loginUseCase;
 
     @InjectMocks
-    private HistoriqueController controller;
+    private AuthController controller;
 
     @Test
-    void findHistoriqueByUtilisateurId_returnsOk() {
-        var historique = mock(Historique.class);
-        var response = mock(HistoriqueResponse.class);
+    void login_returnsOk() {
+        var request = mock(LoginRequest.class);
+        var response = mock(LoginResponse.class);
 
-        when(findHistoriqueByUtilisateurUseCase.execute(
-            new FindHistoriqueByUtilisateurCommand(1L)))
-            .thenReturn(List.of(historique));
-        when(historiqueDtoMapper.toResponse(historique)).thenReturn(response);
+        when(request.email()).thenReturn("user@test.com");
+        when(request.password()).thenReturn("secret");
+        when(loginUseCase.execute(
+            new LoginCommand("user@test.com", "secret")))
+            .thenReturn(response);
 
-        var result = controller.findHistoriqueByUtilisateurId(1L);
+        var result = controller.login(request);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(result.getBody()).containsExactly(response);
+        assertThat(result.getBody()).isEqualTo(response);
     }
 }
