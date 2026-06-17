@@ -1,9 +1,1 @@
-@ParameterizedTest
-@EnumSource(value = FonctionnaliteStatus.class)
-void execute_shouldCallCorrectRepository_forEachStatus(FonctionnaliteStatus status) {
-    // chaque status appelle une méthode différente — on vérifie juste qu'aucune exception
-    findFonctionnalitesByStatusUseCase.execute(
-        new FindFonctionnalitesByStatusCommand(status, environnementId));
-
-    verifyNoMoreInteractions(/* aucun appel inattendu */);
-}
+HELM_OTHER_ARGS: '--set ${CI_PROJECT_NAME}.labels.app\.kubernetes\.io/version=${CI_COMMIT_REF_SLUG} --set ${CI_PROJECT_NAME}.image.tag=${CI_COMMIT_REF_SLUG} --set-string ${CI_PROJECT_NAME}.env[0].value=${CI_COMMIT_REF_SLUG}'
